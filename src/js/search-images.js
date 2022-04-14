@@ -1,6 +1,9 @@
 import apiGallery from './gallery-api';
 import makeCardsMarkupTpl from '../templates/gallery-card.hbs';
+import { smoothScroll } from './smooth-scroll';
 import { Notify } from 'notiflix/build/notiflix-notify-aio';
+import SmoothScroll from 'smoothscroll-for-websites';
+import { lightbox } from './simpleLightbox';
 
 const refs = {
   form: document.querySelector('#search-form'),
@@ -10,6 +13,14 @@ const refs = {
 
 refs.form.addEventListener('submit', onSearchClick);
 refs.loadMore.addEventListener('click', onLoadMoreClick);
+
+SmoothScroll({
+  animationTime: 400,
+  stepSize: 60,
+  pulseAlgorithm: true,
+  pulseScale: 4,
+  pulseNormalize: 1,
+});
 
 const newApiGallery = new apiGallery();
 
@@ -26,23 +37,27 @@ async function onSearchClick(evt) {
   newApiGallery.resetPage();
 
   try {
-    const hits = await newApiGallery.fetchGallery();
+    const data = await newApiGallery.axiosGallery();
 
-    if (hits.length === 0) {
-      Notify.warning('Sorry, there are no images matching your search query. Please try again.');
+    if (data.hits.length === 0) {
+      Notify.failure('Sorry, there are no images matching your search query. Please try again.');
       return;
     }
 
     refs.gallery.innerHTML = '';
-    makeGalleryMarkup(hits);
+    makeGalleryMarkup(data.hits);
+    lightbox.refresh();
+    Notify.success(`Hooray! We found ${data.totalHits} images.`);
   } catch (error) {
     console.log(error);
   }
 }
 
 async function onLoadMoreClick() {
-  const hits = await newApiGallery.fetchGallery();
-  makeGalleryMarkup(hits);
+  const data = await newApiGallery.axiosGallery();
+  makeGalleryMarkup(data.hits);
+  lightbox.refresh();
+  smoothScroll();
 }
 
 function makeGalleryMarkup(arrayImgs) {
@@ -53,7 +68,7 @@ function makeGalleryMarkup(arrayImgs) {
 function isMorePages() {
   if (!newApiGallery.morePages) {
     refs.gallery.insertAdjacentHTML(
-      'afterend',
+      'beforeend',
       "<div class='nomore-text'>We're sorry, but you've reached the end of search results.</div>",
     );
   }
